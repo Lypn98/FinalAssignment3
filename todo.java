@@ -2,15 +2,18 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import com.toedter.calendar.JDateChooser;
 import com.toedter.calendar.JCalendar;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 
 public class todo extends JFrame implements ActionListener {
+    //CardLayoutでの変数の宣言
     JPanel cardPanel;
     CardLayout layout;
     //panel01で使用する変数の宣言
@@ -27,30 +30,43 @@ public class todo extends JFrame implements ActionListener {
     JButton btnKakeiboHozon = new JButton("保存");
     JTextField amountField = new JTextField("");
     JTextField contentField = new JTextField("");
-    
     JDateChooser datechooser = new JDateChooser();
 
    //panel03で使用する変数の宣言
     JPanel panel03 = new JPanel(new GridBagLayout());
-    List YarukotoList = new List(5);
-    List KakeiboList = new List();
     JList<String> KakeiboJList = new JList<>(new DefaultListModel<>());
     JList<String> YarukotoJList = new JList<>(new DefaultListModel<>());
     JButton editButton = new JButton("編集");
     JButton deleteButton = new JButton("削除");
+    JButton deleteButton1 = new JButton("削除");
     JCalendar calendar;
     Boolean KakeiboFT = false;
 
-    //ActionListenerで使う変数
-    String todo = TodoField.getText();
-    String importance = JuyouList.getSelectedItem();
-    Date deadlineDate = datechooser1.getDate();
-    String deadline = formatDate(deadlineDate);
-    String todoItem = "(重要度： "+ importance + ", 日付： "+ deadline + ")" + todo;
-    //日付を保存するMap
-    Map<String, String> todoDeadlines = new HashMap<>();
-    //削除ボタン管理するMap
-    Map<String, JButton> deleteButtonsMap = new HashMap<>();
+    //ActionListenerのTodoで使うアイテム
+    String todo = null;
+    String importance = null;
+    Date deadlineDate ;
+    String deadline = null;
+    String todoItem = null;
+
+    //ActionListenerの家計簿で使うアイテム
+    String amount = null;
+    String content = null;
+    String date = null;
+    Date Hiduke;
+    String MinusItem = null;
+    String PlusItem = null;
+
+    //日付が一致しているかどうか判断する
+    boolean SameDate = false;
+    Date selectedDate;
+    /*//Todoに関する据え置きのリスト
+    JList<String> SueokiTodoList = new JList<>(new DefaultListModel<>());
+    JList<String> SueokiKakeiboList = new JList<>(new DefaultListModel<>());*/
+    ArrayList<Data> data = new ArrayList<>() , minus = new ArrayList<>();    
+    int count=0;
+    int count2 = 0;
+
     public static void main(String[] args) {
         //frameの作成
         todo frame = new todo();
@@ -59,7 +75,6 @@ public class todo extends JFrame implements ActionListener {
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(EXIT_ON_CLOSE);
         frame.setVisible(true);
-        
     }
 
     todo() {
@@ -90,7 +105,6 @@ public class todo extends JFrame implements ActionListener {
         panel01.add(JuyouList,gbc);
         JuyouList.addActionListener(this);
         
-
         gbc.gridx=0;gbc.gridy=200;gbc.gridwidth=200;gbc.gridheight=100;
         panel01.add(new JLabel("期限"),gbc);
 
@@ -108,7 +122,8 @@ public class todo extends JFrame implements ActionListener {
         btnTodoHozon.addActionListener(this);
         
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
+    
+
         // panel02
         gbc.insets = new Insets(15, 15, 25, 15);
         panel02.setSize(500,600);
@@ -164,59 +179,100 @@ public class todo extends JFrame implements ActionListener {
         calendar = new JCalendar();
         gbc.insets = new Insets(10, 10, 5, 10);
         panel03.setSize(500,600);
+        //backgroundはグレーに設定。
         panel03.setBackground(Color.LIGHT_GRAY);
 
         //Calendarの設置
+        gbc.fill = GridBagConstraints.BOTH;
+        //上に詰める設定
+        gbc.anchor = GridBagConstraints.NORTH;
         gbc.weightx=1;gbc.weighty=1;
-        gbc.gridx=0;gbc.gridy=0;gbc.gridwidth=100;gbc.gridheight=60;
-        calendar.setPreferredSize(new Dimension(450,180));
+        gbc.gridx=0;gbc.gridy=0;gbc.gridwidth=80;gbc.gridheight=50;
         panel03.add(calendar,gbc);
 
-        //YarukotoListに対する削除ボタンの実装
-        gbc.gridx=20;gbc.gridy=60;gbc.gridwidth=10;gbc.gridheight=5;
+        //YarukotoJListに対する削除ボタンの実装
+        gbc.fill = GridBagConstraints.NONE;
+        //左上につめる設定。
+        gbc.anchor = GridBagConstraints.NORTHWEST;
+        gbc.gridx=20;gbc.gridy=50;gbc.gridwidth=10;gbc.gridheight=1;
         panel03.add(deleteButton,gbc);
         deleteButton.addActionListener(this);
+        //KakeiboJListに対する削除ボタン
+        gbc.gridx=60;gbc.gridy=50;gbc.gridwidth=10;gbc.gridheight=1;
+        panel03.add(deleteButton1,gbc);
+        //ActionListenerの設定。
+        deleteButton1.addActionListener(this);
 
-        //やることリスト(YarukotoList)と家計簿(KakeiboList)の追加
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.gridx=0;gbc.gridy=60;gbc.gridwidth=50;gbc.gridheight=5;
+        //Labelの設定
+        gbc.anchor = GridBagConstraints.NORTHWEST;
+        gbc.gridx=0;gbc.gridy=50;gbc.gridwidth=10;gbc.gridheight=1;
         panel03.add(new JLabel("やること一覧"),gbc);
-        gbc.gridx=50;
+        gbc.gridx=40;
         panel03.add(new JLabel("今日の収支"),gbc);
 
-        gbc.insets = new Insets(0, 0, 0, 0);
-        gbc.gridx=0;gbc.gridy=65;gbc.gridwidth=50;gbc.gridheight=30;
-        YarukotoList.setPreferredSize(new Dimension(400,150));
-        panel03.add(YarukotoList,gbc);
-        YarukotoList.addActionListener(this);
-        gbc.gridx=50;
-        KakeiboList.setPreferredSize(new Dimension(400,150));
+        //YarukotoJListとKakieboJListのGUIの配置を設定。
+        gbc.fill = GridBagConstraints.BOTH;
+        //上につめるanchor
+        gbc.anchor = GridBagConstraints.NORTH;
+        //sizeの設定
+        YarukotoJList.setPreferredSize(new Dimension(200,150));
+        KakeiboJList.setPreferredSize(new Dimension(200,150));
+        //上下左右の余白の設定
+        gbc.insets = new Insets(0, 5, 5, 5);
+        //比率の設定
+        gbc.gridx=0;gbc.gridy=51;gbc.gridwidth=40;gbc.gridheight=60;
+        //panel03にYarukotoJListを追加する
+        panel03.add(YarukotoJList,gbc);
+        gbc.gridx=40;
         panel03.add(KakeiboJList,gbc);
+        YarukotoJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        //JListの初期化
-        KakeiboJList.setSelectionModel(new DefaultListSelectionModel() {
+        // panel03のコンストラクタ内でcalendarのPropertyChangeListenerを追加
+        calendar.addPropertyChangeListener("calendar", new PropertyChangeListener() {
             @Override
-            public void setSelectionInterval(int index0, int index1) {
-                super.setSelectionInterval(-1, -1);
+            public void propertyChange(PropertyChangeEvent evt) {
+                // 日付が変更されたときの処理
+                if ("calendar".equals(evt.getPropertyName())) {
+                    ((DefaultListModel<String>) YarukotoJList.getModel()).removeAllElements();
+                    ((DefaultListModel<String>) KakeiboJList.getModel()).removeAllElements();
+                    //カレンダーで選択した日を取得
+                    selectedDate = calendar.getDate();
+                    Calendar cal = Calendar.getInstance();
+                    cal.setTime(selectedDate);
+                    for(int i=0;i<data.size();i++){
+                        if(data.get(i).month == cal.get(Calendar.MONTH) && data.get(i).day == cal.get(Calendar.DAY_OF_MONTH)-1){
+                            ((DefaultListModel<String>) YarukotoJList.getModel()).addElement(data.get(i).task);
+                        }
+                    }
+                    /*int todoListSize = SueokiTodoList.getModel().getSize();
+                    int KakeiboListSize = SueokiKakeiboList.getModel().getSize();
+                    
+                    //SueokiTodoListの長さでfor文を回して、deadlineDateとselectedDateが一致していればYarukotoJListに追加
+                    for(int i=0;i<todoListSize;i++){
+                        if(isSameDate(deadlineDate, selectedDate)){
+                            String todoItem = SueokiTodoList.getModel().getElementAt(i);
+                            ((DefaultListModel<String>) YarukotoJList.getModel()).addElement(todoItem);
+                        }
+                    }*/
+                    for(int i=0;i<minus.size();i++){
+                        if(minus.get(i).month == cal.get(Calendar.MONTH) && minus.get(i).day == cal.get(Calendar.DAY_OF_MONTH)-1){
+                            ((DefaultListModel<String>) KakeiboJList.getModel()).addElement(minus.get(i).task);
+                        }
+                    }                
+                }
             }
         });
-
-        YarukotoJList.setSelectionModel(new DefaultListSelectionModel() {
-            @Override
-            public void setSelectionInterval(int index0, int index1) {
-                super.setSelectionInterval(-1, -1);
-            }
-        });
-
+        
+    
         // CardLayout用パネル
         cardPanel = new JPanel();
         layout = new CardLayout();
         cardPanel.setLayout(layout);
 
+        //panel01～panel03をcardpanelに追加
         cardPanel.add(panel01, "panel01");
         cardPanel.add(panel02, "panel02");
         cardPanel.add(panel03, "panel03");
-
 
         // カード移動用ボタン
         JButton firstButton = new JButton("Todo入力");
@@ -241,6 +297,12 @@ public class todo extends JFrame implements ActionListener {
         contentPane.add(cardPanel, BorderLayout.CENTER);
         contentPane.add(btnPanel, BorderLayout.PAGE_END);
     }
+
+    private String formatDate(Date date) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+        return (date != null) ? sdf.format(date) : "";
+    }
+
     public void clearTodo(){
         //TodoListの保存ボタンが押された際、中身をリセットするクラス。
         TodoField.setText("");
@@ -253,27 +315,18 @@ public class todo extends JFrame implements ActionListener {
         contentField.setText("");
         datechooser.setDate(null);
     }
-    private void UpdateYarukotoListForSelectedDate() {
-        String selectedDate = formatDate(calendar.getDate());
-        if (todoDeadlines.containsKey(selectedDate)) {
-            YarukotoList.removeAll();
-            YarukotoList.add(todoDeadlines.get(selectedDate));
-        } else {
-            YarukotoList.removeAll();
-        }
-    }
-
-    private String formatDate(Date date) {
+    /*private boolean isSameDate(Date date1, Date date2) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-        return (date != null) ? sdf.format(date) : "";
-    }
+        return sdf.format(date1).equals(sdf.format(date2));
+    }*/
+
 
     //それぞれのボタン等が押されたときのアクションを記載
     public void actionPerformed(ActionEvent e) {
         //カードパネルの部分のアクションの設定。
         String cmd = e.getActionCommand();
         layout.show(cardPanel, cmd);
-        //収入ボタンと支出ボタンが押されたとき
+        //収入ボタンと支出ボタンが押されたときフラッグを切り替える。
         if(e.getSource() == PlusButton){
             KakeiboFT=true;
         }
@@ -281,49 +334,112 @@ public class todo extends JFrame implements ActionListener {
             KakeiboFT = false;
         }
 
-        else if(e.getSource() == btnKakeiboHozon){
+        if(e.getSource() == btnKakeiboHozon){
             // 家計簿の保存ボタンが押されたとき
-            String amount = amountField.getText();
-            String content = contentField.getText();
-            Date Hiduke = datechooser.getDate();
-            String date = formatDate(Hiduke);
-  
+            Calendar cal = Calendar.getInstance();
+
+            amount = amountField.getText();
+            content = contentField.getText();
+            Hiduke = datechooser.getDate();
+            cal.setTime(Hiduke);
+            date = formatDate(Hiduke);
+            MinusItem = "<html>"+"("+content+")"+"－"
+            +"<font color='red'>"+amount+"</font>"+"</html>";
+            PlusItem = "<html>"+"("+content+")"+"＋"
+            +"<font color='blue'>"+amount+"</font>"+"</html>";
               // TODO: 家計簿リストに追加する処理を実装
               //falseなら赤字で、trueなら青字で。
             if(KakeiboFT==false){
-                ((DefaultListModel<String>) KakeiboJList.getModel()).addElement("<html>"+"("+content+")"+"－"
-                +"<font color='red'>"+amount+"</font>"+"</html>");
+                Data m = new Data();
+                m.month = cal.get(Calendar.MONTH);
+                m.day = cal.get(Calendar.DAY_OF_MONTH)-1;
+                m.task = MinusItem;
+                minus.add(m);
+                //((DefaultListModel<String>) SueokiKakeiboList.getModel()).addElement(MinusItem);
             }
             else if(KakeiboFT ==true){
-                ((DefaultListModel<String>) KakeiboJList.getModel()).addElement("<html>"+"("+content+")"+"＋"
-                +"<font color='blue'>"+amount+"</font>"+"</html>");
+                Data m = new Data();
+                m.month = cal.get(Calendar.MONTH);
+                m.day = cal.get(Calendar.DAY_OF_MONTH)-1;
+                m.task = PlusItem;
+                minus.add(m);
+                //((DefaultListModel<String>) SueokiKakeiboList.getModel()).addElement(PlusItem);
             }
               // テキストフィールドをクリア
             clearKakeibo();
         }
         // Todoの保存ボタンが押されたとき
-        else if(e.getSource() == btnTodoHozon){
-            String todo = TodoField.getText();
-            String importance = JuyouList.getSelectedItem();
-            Date deadlineDate = datechooser1.getDate();
-            String deadline = formatDate(deadlineDate);
+        if(e.getSource() == btnTodoHozon){
+            //calendarからInstanceの取得
+            Calendar cal = Calendar.getInstance();
+            //やることをテキストフィールドから取得
+            todo = TodoField.getText();
+            //重要度を取得
+            importance = JuyouList.getSelectedItem();
+            //日付も取得する。
+            deadlineDate = datechooser1.getDate();
+            cal.setTime(deadlineDate);
+            deadline = formatDate(deadlineDate);
             // TODO: Todoリストに追加する処理を実装
-            String todoItem = "(重要度： "+ importance + ", 日付： "+ deadline + ")" + todo;
-            YarukotoList.add(todoItem);
-            todoDeadlines.put(deadline,todoItem);
-            // カレンダーの日付が選択されている場合、その日のTodoリストを表示
-            if (deadline != null && calendar.getDate() != null && deadline.equals(formatDate(calendar.getDate()))) {
-                UpdateYarukotoListForSelectedDate();
-            }
+            todoItem = "(重要度： "+ importance +  ")" + todo;
+            //Date型infのmanth day taskを設定
+            //((DefaultListModel<String>) SueokiTodoList.getModel()).addElement(todoItem);
+            Data inf = new Data();
+            inf.month = cal.get(Calendar.MONTH);
+            inf.day = cal.get(Calendar.DAY_OF_MONTH)-1;
+            inf.task = todoItem;
+            data.add(inf);
             // テキストフィールドをクリア
-            clearTodo();     
+            clearTodo();
         }
-        if(e.getSource()==deleteButton){
-             // 選択されたアイテムを取得
-            String selectTodoItem = YarukotoJList.getSelectedValue();
-            if (selectTodoItem != null){
-            YarukotoList.remove(selectTodoItem);
+        //deleteBunttonをおしたときの処理(Todoの要素の削除)
+        if (e.getSource() == deleteButton) {
+            int selectedIndex = YarukotoJList.getSelectedIndex();
+            System.out.println(selectedIndex);
+            if (selectedIndex != -1) {
+                // 選択された要素があれば削除
+                ((DefaultListModel<String>) YarukotoJList.getModel()).removeElementAt(selectedIndex);
+                //calendarから日付を取得
+                selectedDate = calendar.getDate();
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(selectedDate);
+                //要素を削除するだけでなく、dataも削除するプログラム
+                for(int i=0;i<data.size();i++){
+                    if(data.get(i).month == cal.get(Calendar.MONTH) && data.get(i).day == cal.get(Calendar.DAY_OF_MONTH)-1){
+                        if(count==selectedIndex){
+                            data.remove(i);
+                            count = -1;
+                        }
+                        count++;
+                    }
+                }
+            }
+        }
+        //deleteButton1がおされたときの処理（Kakeiboの要素の削除）
+        //deleteButtonと同じような処理。変数名が違ったりするだけ。
+        if(e.getSource() == deleteButton1){
+            int KakeiboIndex = KakeiboJList.getSelectedIndex();
+            if(KakeiboIndex!=-1){
+                ((DefaultListModel<String>) KakeiboJList.getModel()).removeElementAt(KakeiboIndex);
+                selectedDate = calendar.getDate();
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(selectedDate);
+                for(int i=0;i<minus.size();i++){
+                    if(minus.get(i).month == cal.get(Calendar.MONTH) && minus.get(i).day == cal.get(Calendar.DAY_OF_MONTH)-1){
+                        if(count2 == KakeiboIndex){
+                            minus.remove(i);
+                            count2 = -1;
+                        }
+                        count2++;
+                    }
+                }
             }
         }
     }
+}
+
+class Data{
+    int day;
+    int month;
+    String task;
 }
